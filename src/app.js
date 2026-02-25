@@ -9,12 +9,20 @@ import purchaseRoutes from "./routes/purchase.routes.js";
 import libraryRoutes from "./routes/library.routes.js";
 import superadminRoutes from "./routes/superadmin.routes.js";
 
-const app = express();
-
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://steamclone-pm23a39q9-vishnus-projects-12deed2b.vercel.app"
+];
 
 app.use(
   cors({
-    origin: "http://localhost:3000", // Vite frontend
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true
   })
 );
