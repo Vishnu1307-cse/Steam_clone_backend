@@ -2,18 +2,65 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    passwordHash: { type: String, required: true },
+    username: {
+      type: String,
+      required: true,
+      unique: true
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true
+    },
+
+    passwordHash: {
+      type: String,
+      required: true
+    },
+
+    // Only for employee / admin roles
+    employeeId: {
+      type: String,
+      sparse: true,
+      unique: true
+    },
 
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "employee", "admin", "superadmin"],
       default: "user"
     },
 
-    isBanned: { type: Boolean, default: false },
-    banReason: { type: String }
+    /* ======================
+       Digital identity
+    ====================== */
+
+    // Store ONLY public key
+    publicKey: String,
+
+    // Optional: encrypted private key (demo only)
+    encryptedPrivateKey: String,
+
+    // OTP / verification
+    otpHash: String,
+    otpExpires: Date,
+
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+
+    /* ======================
+       Moderation
+    ====================== */
+
+    isBanned: {
+      type: Boolean,
+      default: false
+    },
+
+    banReason: String
   },
   { timestamps: true }
 );

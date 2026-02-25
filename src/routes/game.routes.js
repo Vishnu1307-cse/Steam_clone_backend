@@ -1,5 +1,6 @@
 import express from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
+import { getMyGames } from "../controllers/game.controller.js";
 import {
   getAllGames,
   getGameById,
@@ -16,6 +17,7 @@ router.get("/search", searchGamesByName);
 
 // Public
 router.get("/", getAllGames);
+router.get("/me", authenticate, getMyGames);
 router.get("/:id", getGameById);
 
 // Protected

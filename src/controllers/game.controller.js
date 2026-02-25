@@ -114,3 +114,17 @@ export const deleteGame = async (req, res) => {
 
   res.json({ message: "Game deleted" });
 };
+
+export const getMyGames = async (req, res) => {
+  try {
+    const games = await Game.find({
+      uploadedBy: req.user.id,
+      isDeleted: false
+    }).populate("uploadedBy", "username email");
+
+    res.json(games);
+  } catch (err) {
+    console.error("Get my games error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

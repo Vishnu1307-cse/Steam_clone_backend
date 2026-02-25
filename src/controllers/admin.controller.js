@@ -26,9 +26,9 @@ export const requestAdmin = async (req, res) => {
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: process.env.EMAIL_USER,
-    subject: "Admin Creation Request",
+    subject: "Employee Creation Request",
     text: `
-Admin account request:
+Employee account request:
 
 Username: ${username}
 Email: ${email}
@@ -38,7 +38,7 @@ ${rawToken}
 `
   });
 
-  res.status(200).json({ message: "Admin request sent for approval" });
+  res.status(200).json({ message: "Employee request sent for approval" });
 };
 
 
@@ -53,7 +53,7 @@ export const approveAdmin = async (req, res) => {
   const request = await AdminRequest.findOne({ email, used: false });
 
   if (!request) {
-    return res.status(404).json({ message: "No pending admin request" });
+    return res.status(404).json({ message: "No pending employee request" });
   }
 
   if (request.expiresAt < new Date()) {
@@ -73,19 +73,19 @@ export const approveAdmin = async (req, res) => {
     username: request.username,
     email: request.email,
     passwordHash: request.passwordHash,
-    role: "admin"
+    role: "employee"
   });
 
   request.used = true;
   await request.save();
 
-  res.json({ message: "Admin approved and account created" });
+  res.json({ message: "Employee approved and account created" });
 };
 
 
 export const getAllUsers = async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admins only" });
+  if (!(req.user.role === "employee" || req.user.role === "admin")) {
+    return res.status(403).json({ message: "Employees only" });
   }
 
   const { q } = req.query;
@@ -107,13 +107,13 @@ export const getAllUsers = async (req, res) => {
 };
 
 export const deleteUser = async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admins only" });
+  if (!(req.user.role === "employee" || req.user.role === "admin")) {
+    return res.status(403).json({ message: "Employees only" });
   }
 
   const user = await User.findById(req.params.userId);
 
-  if (!user || user.role === "admin") {
+  if (!user || user.role === "employee" || user.role === "admin") {
     return res.status(404).json({ message: "User not found" });
   }
 
