@@ -11,10 +11,7 @@ import superadminRoutes from "./routes/superadmin.routes.js";
 
 const app = express();
 
-/**
- * ✅ CORS CONFIG
- * Allow frontend to talk to backend
- */
+
 app.use(
   cors({
     origin: "http://localhost:3000", // Vite frontend
@@ -31,5 +28,9 @@ app.use("/users", userRoutes);
 app.use("/library", libraryRoutes);
 app.use("/games", gameRoutes);
 app.use("/games", purchaseRoutes);
+
+app.get("/ping", (req, res) => {
+  res.status(200).send("Server is alive");
+});
 
 export default app;
