@@ -13,7 +13,8 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://steamclone-pm23a39q9-vishnus-projects-12deed2b.vercel.app"
+  "https://steamclone-pm23a39q9-vishnus-projects-12deed2b.vercel.app",
+  "https://steamclone.vercel.app"
 ];
 
 app.use(
