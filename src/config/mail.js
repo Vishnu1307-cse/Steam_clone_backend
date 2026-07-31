@@ -1,11 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import sgMail from "@sendgrid/mail";
+import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const logResult = (data) => {
   const logPath = path.join(process.cwd(), "mail-debug.log");
@@ -14,61 +12,99 @@ const logResult = (data) => {
   fs.appendFileSync(logPath, logMessage);
 };
 
-const sendEmail = async (msg) => {
-  try {
-    logResult({ action: "attempt", to: msg.to, from: msg.from, subject: msg.subject });
-    console.log(`Attempting to send email to ${msg.to} from ${msg.from}...`);
-    const response = await sgMail.send(msg);
-    console.log(`Email sent successfully. Status Code: ${response[0].statusCode}`);
-    logResult({ action: "success", status: response[0].statusCode });
-  } catch (error) {
-    console.error("SendGrid Error Details:");
-    const errorData = error.response ? error.response.body : { message: error.message };
-    console.error(JSON.stringify(errorData, null, 2));
-    logResult({ action: "error", error: errorData });
+// Create reusable SMTP Transporter (defaulting to Gmail SMTP or custom host)
+const createSmtpTransporter = (user, pass) => {
+  if (user && pass) {
+    return nodemailer.createTransport({
+      service: process.env.SMTP_SERVICE || "gmail",
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user,
+        pass
+      }
+    });
   }
+  return null;
 };
 
-// Main transporter for tokens/approvals (svvishnu33@gmail.com)
+// Transporters for main email & OTP email
+const mainSmtp = createSmtpTransporter(process.env.EMAIL_USER, process.env.EMAIL_PASS);
+const otpSmtp = createSmtpTransporter(process.env.EMAIL_OTP_USER, process.env.EMAIL_OTP_PASS) || mainSmtp;
+
+// Main transporter for tokens/approvals
 export const transporter = {
   verify: (callback) => {
-    // Mocking nodemailer verify for SendGrid
-    if (process.env.SENDGRID_API_KEY) {
-      callback(null, true);
+    if (mainSmtp) {
+      mainSmtp.verify(callback);
     } else {
-      callback(new Error("SENDGRID_API_KEY is missing"), null);
+      console.warn("⚠️ Nodemailer Warning: EMAIL_PASS is not configured in .env. Running in mock email mode.");
+      callback(null, true);
     }
   },
   sendMail: async (options) => {
-    const msg = {
-      to: options.to,
-      from: process.env.EMAIL_USER, // svvishnu33@gmail.com
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-    };
-    return sendEmail(msg);
+    if (!mainSmtp) {
+      console.log(`[NODEMAILER MOCK] To: ${options.to} | Subject: ${options.subject}`);
+      logResult({ action: "mock_send", to: options.to, subject: options.subject });
+      return;
+    }
+
+    try {
+      logResult({ action: "attempt", to: options.to, subject: options.subject });
+      const info = await mainSmtp.sendMail({
+        from: `\"Steam Clone\" <${process.env.EMAIL_USER}>`,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html
+      });
+      console.log(`Email sent via Nodemailer: ${info.messageId}`);
+      logResult({ action: "success", messageId: info.messageId });
+      return info;
+    } catch (error) {
+      console.error("Nodemailer Send Error:", error);
+      logResult({ action: "error", error: error.message });
+      throw error;
+    }
   }
 };
 
-// OTP transporter (anonymousforuse33@gmail.com)
+// OTP Transporter
 export const otpTransporter = {
   verify: (callback) => {
-    // Mocking nodemailer verify for SendGrid
-    if (process.env.SENDGRID_API_KEY) {
-      callback(null, true);
+    if (otpSmtp) {
+      otpSmtp.verify(callback);
     } else {
-      callback(new Error("SENDGRID_API_KEY is missing"), null);
+      callback(null, true);
     }
   },
   sendMail: async (options) => {
-    const msg = {
-      to: options.to,
-      from: process.env.EMAIL_OTP_USER, // anonymousforuse33@gmail.com
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-    };
-    return sendEmail(msg);
+    if (!otpSmtp) {
+      console.log(`\n============================================`);
+      console.log(`🔑 [MOCK OTP GENERATED] To: ${options.to}`);
+      console.log(`📧 Content: ${options.text}`);
+      console.log(`============================================\n`);
+      logResult({ action: "mock_otp_send", to: options.to, content: options.text });
+      return;
+    }
+
+    try {
+      logResult({ action: "otp_attempt", to: options.to, subject: options.subject });
+      const info = await otpSmtp.sendMail({
+        from: `\"Steam Clone Security\" <${process.env.EMAIL_OTP_USER || process.env.EMAIL_USER}>`,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html
+      });
+      console.log(`OTP Email sent via Nodemailer: ${info.messageId}`);
+      logResult({ action: "otp_success", messageId: info.messageId });
+      return info;
+    } catch (error) {
+      console.error("Nodemailer OTP Send Error:", error);
+      logResult({ action: "otp_error", error: error.message });
+      throw error;
+    }
   }
 };
