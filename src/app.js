@@ -11,8 +11,36 @@ import superadminRoutes from "./routes/superadmin.routes.js";
 
 const app = express();
 
+// =========================================================
+// ✅ HEALTH CHECK — MUST be before CORS so ping bots
+//    (UptimeRobot, cron-job.org, Better Stack, etc.) can
+//    reach these endpoints without being blocked by origin
+//    restrictions. They send no Origin header.
+// =========================================================
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "Steam Clone Backend",
+    timestamp: new Date().toISOString(),
+    uptime: `${Math.floor(process.uptime())}s`
+  });
+});
+
+// Also respond to HEAD (some bots use HEAD instead of GET)
+app.head("/health", (req, res) => res.status(200).end());
+
+app.get("/ping", (req, res) => res.status(200).send("pong"));
+app.head("/ping", (req, res) => res.status(200).end());
+
+app.get("/", (req, res) => res.status(200).json({ status: "ok" }));
+app.head("/", (req, res) => res.status(200).end());
+
+// =========================================================
+
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:5174",
   "https://steamclone-pm23a39q9-vishnus-projects-12deed2b.vercel.app",
   "https://steamclone.vercel.app"
 ];
@@ -36,14 +64,5 @@ app.use("/library", libraryRoutes);
 app.use("/games", gameRoutes);
 app.use("/games", purchaseRoutes);
 
-// Uptime & Ping Bot Health Check Endpoints (Supports UptimeRobot, Better Stack, Cron-job.org)
-app.all(["/", "/health", "/ping"], (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    message: "Steam Clone Backend API is running",
-    timestamp: new Date().toISOString(),
-    uptime: `${Math.floor(process.uptime())}s`
-  });
-});
-
 export default app;
+
