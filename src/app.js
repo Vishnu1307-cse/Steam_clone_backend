@@ -36,8 +36,14 @@ app.use("/library", libraryRoutes);
 app.use("/games", gameRoutes);
 app.use("/games", purchaseRoutes);
 
-app.get("/ping", (req, res) => {
-  res.status(200).send("Server is alive");
+// Uptime & Ping Bot Health Check Endpoints (Supports UptimeRobot, Better Stack, Cron-job.org)
+app.all(["/", "/health", "/ping"], (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Steam Clone Backend API is running",
+    timestamp: new Date().toISOString(),
+    uptime: `${Math.floor(process.uptime())}s`
+  });
 });
 
 export default app;
