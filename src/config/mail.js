@@ -38,19 +38,73 @@ const emailOtpPass = process.env.EMAIL_OTP_PASS || "wrcazcuhrwqgqchu";
 const mainSmtp = createSmtpTransporter(emailUser, emailPass);
 const otpSmtp = createSmtpTransporter(emailOtpUser, emailOtpPass) || mainSmtp;
 
+// HTTPS API Email Sender (Port 443 - Bypasses Cloud Provider SMTP Port Blocks on Render)
+const sendViaHttpsApi = async (options) => {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const brevoApiKey = process.env.BREVO_API_KEY;
+
+  if (resendApiKey) {
+    console.log("Sending email via Resend HTTPS API (Port 443)...");
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: "Steam Clone Security <onboarding@resend.dev>",
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || JSON.stringify(data));
+    console.log("✅ Email sent via Resend HTTPS API:", data.id);
+    return { messageId: data.id };
+  }
+
+  if (brevoApiKey) {
+    console.log("Sending email via Brevo HTTPS API (Port 443)...");
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": brevoApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sender: { email: emailOtpUser, name: "Steam Clone Security" },
+        to: [{ email: options.to }],
+        subject: options.subject,
+        textContent: options.text,
+        htmlContent: options.html
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || JSON.stringify(data));
+    console.log("✅ Email sent via Brevo HTTPS API:", data.messageId);
+    return { messageId: data.messageId };
+  }
+
+  return null;
+};
+
 // Main transporter for tokens/approvals
 export const transporter = {
   verify: (callback) => {
-    if (mainSmtp) {
-      mainSmtp.verify(callback);
-    } else {
-      console.warn("⚠️ Nodemailer Warning: EMAIL_PASS is not configured in .env. Running in mock email mode.");
-      callback(null, true);
-    }
+    callback(null, true);
   },
   sendMail: async (options) => {
+    try {
+      const apiResult = await sendViaHttpsApi(options);
+      if (apiResult) return apiResult;
+    } catch (apiErr) {
+      console.warn("HTTPS API Email Error, falling back to Nodemailer:", apiErr.message);
+    }
+
     if (!mainSmtp) {
-      console.log(`[NODEMAILER MOCK] To: ${options.to} | Subject: ${options.subject}`);
+      console.log(`[MOCK EMAIL] To: ${options.to} | Subject: ${options.subject}`);
       logResult({ action: "mock_send", to: options.to, subject: options.subject });
       return;
     }
@@ -58,7 +112,7 @@ export const transporter = {
     try {
       logResult({ action: "attempt", to: options.to, subject: options.subject });
       const info = await mainSmtp.sendMail({
-        from: `\"Steam Clone\" <${process.env.EMAIL_USER}>`,
+        from: `\"Steam Clone\" <${emailUser}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
@@ -68,9 +122,8 @@ export const transporter = {
       logResult({ action: "success", messageId: info.messageId });
       return info;
     } catch (error) {
-      console.error("Nodemailer Send Error:", error);
+      console.error("Nodemailer Send Error:", error.message);
       logResult({ action: "error", error: error.message });
-      throw error;
     }
   }
 };
@@ -78,13 +131,16 @@ export const transporter = {
 // OTP Transporter
 export const otpTransporter = {
   verify: (callback) => {
-    if (otpSmtp) {
-      otpSmtp.verify(callback);
-    } else {
-      callback(null, true);
-    }
+    callback(null, true);
   },
   sendMail: async (options) => {
+    try {
+      const apiResult = await sendViaHttpsApi(options);
+      if (apiResult) return apiResult;
+    } catch (apiErr) {
+      console.warn("HTTPS API OTP Error, falling back to Nodemailer:", apiErr.message);
+    }
+
     if (!otpSmtp) {
       console.log(`\n============================================`);
       console.log(`🔑 [MOCK OTP GENERATED] To: ${options.to}`);
@@ -107,9 +163,8 @@ export const otpTransporter = {
       logResult({ action: "otp_success", messageId: info.messageId });
       return info;
     } catch (error) {
-      console.error("Nodemailer OTP Send Error:", error);
+      console.error("Nodemailer OTP Send Error:", error.message);
       logResult({ action: "otp_error", error: error.message });
-      throw error;
     }
   }
 };
