@@ -12,14 +12,13 @@ const logResult = (data) => {
   fs.appendFileSync(logPath, logMessage);
 };
 
-// Create reusable SMTP Transporter (defaulting to Gmail SMTP or custom host)
+// Create reusable SMTP Transporter (using direct SSL port 465 for Cloud compatibility)
 const createSmtpTransporter = (user, pass) => {
   if (user && pass) {
     return nodemailer.createTransport({
-      service: process.env.SMTP_SERVICE || "gmail",
       host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === "true",
+      port: Number(process.env.SMTP_PORT) || 465,
+      secure: process.env.SMTP_SECURE !== "false", // true for 465
       auth: {
         user,
         pass
