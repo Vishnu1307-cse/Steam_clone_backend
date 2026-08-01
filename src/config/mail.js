@@ -29,9 +29,15 @@ const createSmtpTransporter = (user, pass) => {
   return null;
 };
 
+const emailUser = process.env.EMAIL_USER || "svvishnu33@gmail.com";
+const emailPass = process.env.EMAIL_PASS || "psexfpodiffccpgs";
+
+const emailOtpUser = process.env.EMAIL_OTP_USER || "anonymousforuse33@gmail.com";
+const emailOtpPass = process.env.EMAIL_OTP_PASS || "wrcazcuhrwqgqchu";
+
 // Transporters for main email & OTP email
-const mainSmtp = createSmtpTransporter(process.env.EMAIL_USER, process.env.EMAIL_PASS);
-const otpSmtp = createSmtpTransporter(process.env.EMAIL_OTP_USER, process.env.EMAIL_OTP_PASS) || mainSmtp;
+const mainSmtp = createSmtpTransporter(emailUser, emailPass);
+const otpSmtp = createSmtpTransporter(emailOtpUser, emailOtpPass) || mainSmtp;
 
 // Main transporter for tokens/approvals
 export const transporter = {
@@ -92,7 +98,7 @@ export const otpTransporter = {
     try {
       logResult({ action: "otp_attempt", to: options.to, subject: options.subject });
       const info = await otpSmtp.sendMail({
-        from: `\"Steam Clone Security\" <${process.env.EMAIL_OTP_USER || process.env.EMAIL_USER}>`,
+        from: `\"Steam Clone Security\" <${emailOtpUser}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
