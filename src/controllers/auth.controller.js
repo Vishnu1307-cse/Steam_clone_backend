@@ -38,14 +38,14 @@ export const registerUserInit = async (req, res) => {
       otpExpires: Date.now() + 5 * 60 * 1000
     });
 
-    await otpTransporter.sendMail({
-      from: `"Steam Clone" <${process.env.EMAIL_OTP_USER}>`,
+    otpTransporter.sendMail({
+      from: `"Steam Clone" <${process.env.EMAIL_OTP_USER || process.env.EMAIL_USER}>`,
       to: email,
       subject: "Verify your Steam Clone account",
       text: `Your verification code is: ${otp}. Expires in 5 minutes.`
-    });
+    }).catch(err => console.error("Register OTP Email Error:", err.message));
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "OTP sent",
       userId: user._id
     });
@@ -133,23 +133,22 @@ export const loginUser = async (req, res) => {
 
     await user.save();
 
-    console.log(`Sending login OTP email via Nodemailer to ${user.email}...`);
+    console.log(`Sending login OTP email to ${user.email}...`);
 
-    try {
-      await otpTransporter.sendMail({
-        from: `"Steam Clone Security" <${process.env.EMAIL_OTP_USER}>`,
-        to: user.email,
-        subject: "Your Steam Clone Login OTP Code",
-        text: `Your Steam Clone login OTP is: ${otp}. Expires in 5 minutes.`,
-        html: `<div style="font-family: Arial; padding: 20px; background: #171a21; color: #fff;"><h2>Steam Guard Security Code</h2><p>Your login OTP code is: <b style="font-size: 24px; color: #66c0f4;">${otp}</b></p></div>`
-      });
-      console.log(`✅ Nodemailer OTP Email delivered successfully to ${user.email}`);
-    } catch (sendErr) {
-      console.error("❌ Failed to send Nodemailer OTP Email:", sendErr);
-      return res.status(500).json({ message: "Failed to send OTP email via Nodemailer" });
-    }
+    // Non-blocking async dispatch so HTTP response returns instantly
+    otpTransporter.sendMail({
+      from: `"Steam Clone Security" <${process.env.EMAIL_OTP_USER || process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "Your Steam Clone Login OTP Code",
+      text: `Your Steam Clone login OTP is: ${otp}. Expires in 5 minutes.`,
+      html: `<div style="font-family: Arial; padding: 20px; background: #171a21; color: #fff;"><h2>Steam Guard Security Code</h2><p>Your login OTP code is: <b style="font-size: 24px; color: #66c0f4;">${otp}</b></p></div>`
+    }).then(() => {
+      console.log(`✅ Nodemailer OTP Email delivered to ${user.email}`);
+    }).catch((sendErr) => {
+      console.error("⚠️ Nodemailer OTP Email Delivery Error:", sendErr.message);
+    });
 
-    res.json({
+    return res.json({
       twoFactorRequired: true,
       userId: user._id
     });
